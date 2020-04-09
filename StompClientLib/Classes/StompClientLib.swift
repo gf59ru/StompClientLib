@@ -72,7 +72,7 @@ public protocol StompClientLibDelegate: class {
 open class StompClientLib: NSObject, SRWebSocketDelegate {
     var socket: SRWebSocket?
     var sessionId: String?
-    weak var delegate: StompClientLibDelegate?
+    weak var delegate: YMStompClientDelegate?
     var connectionHeaders: [String: String]?
     public var connection: Bool = false
     public var certificateCheckEnabled = true
@@ -83,14 +83,14 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
             let theJSONData = try JSONSerialization.data(withJSONObject: dict, options: JSONSerialization.WritingOptions())
             let theJSONText = String(data: theJSONData, encoding: String.Encoding.utf8)
             //print(theJSONText!)
-            let header = [StompCommands.commandHeaderContentType:"application/json;charset=UTF-8"]
+            let header = [YMStompCommands.commandHeaderContentType:"application/json;charset=UTF-8"]
             sendMessage(message: theJSONText!, toDestination: destination, withHeaders: header, withReceipt: nil)
         } catch {
             print("error serializing JSON: \(error)")
         }
     }
     
-    public func openSocketWithURLRequest(request: NSURLRequest, delegate: StompClientLibDelegate, connectionHeaders: [String: String]? = nil) {
+    public func openSocketWithURLRequest(request: NSURLRequest, delegate: YMStompClientDelegate, connectionHeaders: [String: String]? = nil) {
         self.connectionHeaders = connectionHeaders
         self.delegate = delegate
         self.urlRequest = request
@@ -133,12 +133,12 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
         if socket?.readyState == .OPEN {
             // Support for Spring Boot 2.1.x
             if connectionHeaders == nil {
-                connectionHeaders = [StompCommands.commandHeaderAcceptVersion:"1.1,1.2"]
+                connectionHeaders = [YMStompCommands.commandHeaderAcceptVersion:"1.1,1.2"]
             } else {
-                connectionHeaders?[StompCommands.commandHeaderAcceptVersion] = "1.1,1.2"
+                connectionHeaders?[YMStompCommands.commandHeaderAcceptVersion] = "1.1,1.2"
             }
             // at the moment only anonymous logins
-            self.sendFrame(command: StompCommands.commandConnect, header: connectionHeaders, body: nil)
+            self.sendFrame(command: YMStompCommands.commandConnect, header: connectionHeaders, body: nil)
         } else {
             self.openSocket()
         }
@@ -246,7 +246,7 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
                 frameString += "\n"
             }
             
-            frameString += StompCommands.controlChar
+            frameString += YMStompCommands.controlChar
             
             if socket?.readyState == .OPEN {
                 socket?.send(frameString)
@@ -285,9 +285,9 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
     }
     
     private func receiveFrame(command: String, headers: [String: String], body: String?) {
-        if command == StompCommands.responseFrameConnected {
+        if command == YMStompCommands.responseFrameConnected {
             // Connected
-            if let sessId = headers[StompCommands.responseHeaderSession] {
+            if let sessId = headers[YMStompCommands.responseHeaderSession] {
                 sessionId = sessId
             }
             
@@ -296,17 +296,17 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
                     delegate.stompClientDidConnect(client: self)
                 })
             }
-        } else if command == StompCommands.responseFrameMessage {   // Message comes to this part
+        } else if command == YMStompCommands.responseFrameMessage {   // Message comes to this part
             // Response
             if let delegate = delegate {
                 DispatchQueue.main.async(execute: {
                     delegate.stompClient(client: self, didReceiveMessageWithJSONBody: self.dictForJSONString(jsonStr: body), akaStringBody: body, withHeader: headers, withDestination: self.destinationFromHeader(header: headers))
                 })
             }
-        } else if command == StompCommands.responseFrameReceipt {   //
+        } else if command == YMStompCommands.responseFrameReceipt {   //
             // Receipt
             if let delegate = delegate {
-                if let receiptId = headers[StompCommands.responseHeaderReceiptId] {
+                if let receiptId = headers[YMStompCommands.responseHeaderReceiptId] {
                     DispatchQueue.main.async(execute: {
                         delegate.serverDidSendReceipt(client: self, withReceiptId: receiptId)
                     })
@@ -314,16 +314,16 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
             }
         } else if command.count == 0 {
             // Pong from the server
-            socket?.send(StompCommands.commandPing)
+            socket?.send(YMStompCommands.commandPing)
             if let delegate = delegate {
                 DispatchQueue.main.async(execute: {
                     delegate.serverDidSendPing()
                 })
             }
-        } else if command == StompCommands.responseFrameError {
+        } else if command == YMStompCommands.responseFrameError {
             // Error
             if let delegate = delegate {
-                if let msg = headers[StompCommands.responseHeaderErrorMessage] {
+                if let msg = headers[YMStompCommands.responseHeaderErrorMessage] {
                     DispatchQueue.main.async(execute: {
                         delegate.serverDidSendError(client: self, withErrorMessage: msg, detailedErrorMessage: body)
                     })
@@ -340,20 +340,20 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
         
         // Setting up the receipt.
         if let receipt = receipt {
-            headersToSend[StompCommands.commandHeaderReceipt] = receipt
+            headersToSend[YMStompCommands.commandHeaderReceipt] = receipt
         }
         
-        headersToSend[StompCommands.commandHeaderDestination] = destination
+        headersToSend[YMStompCommands.commandHeaderDestination] = destination
         
         // Setting up the content length.
         let contentLength = message.utf8.count
-        headersToSend[StompCommands.commandHeaderContentLength] = "\(contentLength)"
+        headersToSend[YMStompCommands.commandHeaderContentLength] = "\(contentLength)"
         
         // Setting up content type as plain text.
-        if headersToSend[StompCommands.commandHeaderContentType] == nil {
-            headersToSend[StompCommands.commandHeaderContentType] = "text/plain"
+        if headersToSend[YMStompCommands.commandHeaderContentType] == nil {
+            headersToSend[YMStompCommands.commandHeaderContentType] = "text/plain"
         }
-        sendFrame(command: StompCommands.commandSend, header: headersToSend, body: message as AnyObject)
+        sendFrame(command: YMStompCommands.commandSend, header: headersToSend, body: message as AnyObject)
     }
     
     /*
@@ -371,30 +371,30 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
         subscribeToDestination(destination: destination, ackMode: .AutoMode)
     }
     
-    public func subscribeToDestination(destination: String, ackMode: StompAckMode) {
+    public func subscribeToDestination(destination: String, ackMode: YMStompAckMode) {
         var ack = ""
         switch ackMode {
-        case StompAckMode.ClientMode:
-            ack = StompCommands.ackClient
+        case YMStompAckMode.ClientMode:
+            ack = YMStompCommands.ackClient
             break
-        case StompAckMode.ClientIndividualMode:
-            ack = StompCommands.ackClientIndividual
+        case YMStompAckMode.ClientIndividualMode:
+            ack = YMStompCommands.ackClientIndividual
             break
         default:
-            ack = StompCommands.ackAuto
+            ack = YMStompCommands.ackAuto
             break
         }
-        var headers = [StompCommands.commandHeaderDestination: destination, StompCommands.commandHeaderAck: ack, StompCommands.commandHeaderDestinationId: ""]
+        var headers = [YMStompCommands.commandHeaderDestination: destination, YMStompCommands.commandHeaderAck: ack, YMStompCommands.commandHeaderDestinationId: ""]
         if destination != "" {
-            headers = [StompCommands.commandHeaderDestination: destination, StompCommands.commandHeaderAck: ack, StompCommands.commandHeaderDestinationId: destination]
+            headers = [YMStompCommands.commandHeaderDestination: destination, YMStompCommands.commandHeaderAck: ack, YMStompCommands.commandHeaderDestinationId: destination]
         }
-        self.sendFrame(command: StompCommands.commandSubscribe, header: headers, body: nil)
+        self.sendFrame(command: YMStompCommands.commandSubscribe, header: headers, body: nil)
     }
     
     public func subscribeWithHeader(destination: String, withHeader header: [String: String]) {
         var headerToSend = header
-        headerToSend[StompCommands.commandHeaderDestination] = destination
-        sendFrame(command: StompCommands.commandSubscribe, header: headerToSend, body: nil)
+        headerToSend[YMStompCommands.commandHeaderDestination] = destination
+        sendFrame(command: YMStompCommands.commandSubscribe, header: headerToSend, body: nil)
     }
     
     /*
@@ -403,39 +403,39 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
     public func unsubscribe(destination: String) {
         connection = false
         var headerToSend = [String: String]()
-        headerToSend[StompCommands.commandHeaderDestinationId] = destination
-        sendFrame(command: StompCommands.commandUnsubscribe, header: headerToSend, body: nil)
+        headerToSend[YMStompCommands.commandHeaderDestinationId] = destination
+        sendFrame(command: YMStompCommands.commandUnsubscribe, header: headerToSend, body: nil)
     }
     
     public func begin(transactionId: String) {
         var headerToSend = [String: String]()
-        headerToSend[StompCommands.commandHeaderTransaction] = transactionId
-        sendFrame(command: StompCommands.commandBegin, header: headerToSend, body: nil)
+        headerToSend[YMStompCommands.commandHeaderTransaction] = transactionId
+        sendFrame(command: YMStompCommands.commandBegin, header: headerToSend, body: nil)
     }
     
     public func commit(transactionId: String) {
         var headerToSend = [String: String]()
-        headerToSend[StompCommands.commandHeaderTransaction] = transactionId
-        sendFrame(command: StompCommands.commandCommit, header: headerToSend, body: nil)
+        headerToSend[YMStompCommands.commandHeaderTransaction] = transactionId
+        sendFrame(command: YMStompCommands.commandCommit, header: headerToSend, body: nil)
     }
     
     public func abort(transactionId: String) {
         var headerToSend = [String: String]()
-        headerToSend[StompCommands.commandHeaderTransaction] = transactionId
-        sendFrame(command: StompCommands.commandAbort, header: headerToSend, body: nil)
+        headerToSend[YMStompCommands.commandHeaderTransaction] = transactionId
+        sendFrame(command: YMStompCommands.commandAbort, header: headerToSend, body: nil)
     }
     
     public func ack(messageId: String) {
         var headerToSend = [String: String]()
-        headerToSend[StompCommands.commandHeaderMessageId] = messageId
-        sendFrame(command: StompCommands.commandAck, header: headerToSend, body: nil)
+        headerToSend[YMStompCommands.commandHeaderMessageId] = messageId
+        sendFrame(command: YMStompCommands.commandAck, header: headerToSend, body: nil)
     }
     
     public func ack(messageId: String, withSubscription subscription: String) {
         var headerToSend = [String: String]()
-        headerToSend[StompCommands.commandHeaderMessageId] = messageId
-        headerToSend[StompCommands.commandHeaderSubscription] = subscription
-        sendFrame(command: StompCommands.commandAck, header: headerToSend, body: nil)
+        headerToSend[YMStompCommands.commandHeaderMessageId] = messageId
+        headerToSend[YMStompCommands.commandHeaderSubscription] = subscription
+        sendFrame(command: YMStompCommands.commandAck, header: headerToSend, body: nil)
     }
     
     /*
@@ -444,15 +444,15 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
     public func disconnect() {
         connection = false
         var headerToSend = [String: String]()
-        headerToSend[StompCommands.commandDisconnect] = String(Int(NSDate().timeIntervalSince1970))
-        sendFrame(command: StompCommands.commandDisconnect, header: headerToSend, body: nil)
+        headerToSend[YMStompCommands.commandDisconnect] = String(Int(NSDate().timeIntervalSince1970))
+        sendFrame(command: YMStompCommands.commandDisconnect, header: headerToSend, body: nil)
         // Close the socket to allow recreation
         self.closeSocket()
     }
     
     // Reconnect after one sec or arg, if reconnect is available
     // TODO: MAKE A VARIABLE TO CHECK RECONNECT OPTION IS AVAILABLE OR NOT
-    public func reconnect(request: NSURLRequest, delegate: StompClientLibDelegate, connectionHeaders: [String: String] = [String: String](), time: Double = 1.0, exponentialBackoff: Bool = true){
+    public func reconnect(request: NSURLRequest, delegate: YMStompClientDelegate, connectionHeaders: [String: String] = [String: String](), time: Double = 1.0, exponentialBackoff: Bool = true){
         if #available(iOS 10.0, *) {
             Timer.scheduledTimer(withTimeInterval: time, repeats: true, block: { _ in
                 self.reconnectLogic(request: request, delegate: delegate
@@ -469,7 +469,7 @@ open class StompClientLib: NSObject, SRWebSocketDelegate {
     //        reconnectLogic(request: request, delegate: delegate, connectionHeaders: connectionHeaders)
     //    }
     
-    private func reconnectLogic(request: NSURLRequest, delegate: StompClientLibDelegate, connectionHeaders: [String: String] = [String: String]()){
+    private func reconnectLogic(request: NSURLRequest, delegate: YMStompClientDelegate, connectionHeaders: [String: String] = [String: String]()){
         // Check if connection is alive or dead
         if (!self.isConnected()){
             self.checkConnectionHeader(connectionHeaders: connectionHeaders) ? self.openSocketWithURLRequest(request: request, delegate: delegate, connectionHeaders: connectionHeaders) : self.openSocketWithURLRequest(request: request, delegate: delegate)

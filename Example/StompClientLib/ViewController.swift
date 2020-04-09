@@ -9,7 +9,7 @@
 import UIKit
 import StompClientLib
 
-class ViewController: UIViewController, StompClientLibDelegate {
+class ViewController: UIViewController, YMStompClientDelegate {
     
     var socketClient = StompClientLib()
     let topic = "/topic/greetings"
@@ -32,7 +32,7 @@ class ViewController: UIViewController, StompClientLibDelegate {
         let completedWSURL = "ws://\(wsURL)hello/websocket"
         
         url = NSURL(string: completedWSURL)!
-        socketClient.openSocketWithURLRequest(request: NSURLRequest(url: url as URL) , delegate: self as StompClientLibDelegate)
+        socketClient.openSocketWithURLRequest(request: NSURLRequest(url: url as URL) , delegate: self as YMStompClientDelegate)
     }
     
     func stompClientDidConnect(client: StompClientLib!) {
@@ -42,7 +42,7 @@ class ViewController: UIViewController, StompClientLibDelegate {
         // Auto Disconnect after 3 sec
         socketClient.autoDisconnect(time: 3)
         // Reconnect after 4 sec
-        socketClient.reconnect(request: NSURLRequest(url: url as URL) , delegate: self as StompClientLibDelegate, time: 4.0)
+        socketClient.reconnect(request: NSURLRequest(url: url as URL) , delegate: self as YMStompClientDelegate, time: 4.0)
     }
     
     func stompClientDidDisconnect(client: StompClientLib!) {
